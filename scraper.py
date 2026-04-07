@@ -169,6 +169,39 @@ async def scrape_sokolka(session, url):
         items.append({'id': link, 'title': title, 'link': link, 'place': workplace, 'system': 'Sokółka BIP'})
     return items
 
+async def scrape_lavina(session, url):
+    soup = await fetch_soup(session, url)
+    if not soup: return []
+    workplace = get_workplace(soup)
+    items = []
+    for li in soup.select('.cms_single_article'):
+        a = li.select_one('.panel a')
+        if not a: continue
+        title = a.get_text(strip=True)
+        if should_skip_role(title): continue
+        link = urljoin(url, a['href'])
+        items.append({'id': link, 'title': title, 'link': link, 'place': workplace, 'system': 'Lavina BIP'})
+    return items
+
+async def scrape_joboffers(session, url):
+    soup = await fetch_soup(session, url)
+    if not soup: return []
+    workplace = get_workplace(soup)
+    items = []
+    table = soup.select_one('table')
+    if not table: return []
+    for tr in table.select('tbody tr'):
+        tds = tr.select('td')
+        if not tds: continue
+        a = tds[0].select_one('a')
+        if not a: continue
+        title = a.get_text(strip=True)
+        if should_skip_role(title): continue
+        link = urljoin(url, a['href'])
+        deadline = tds[2].get_text(strip=True) if len(tds) > 2 else None
+        items.append({'id': link, 'title': title, 'link': link, 'place': workplace, 'deadline': deadline, 'system': 'Table BIP'})
+    return items
+
 async def get_details(session, item):
     soup = await fetch_soup(session, item['link'])
     if not soup: return
@@ -208,6 +241,8 @@ async def process_url(session, entry, history):
     elif system == 'wrota': items = await scrape_wrota(session, url)
     elif system == 'podlaskie': items = await scrape_podlaskie(session, url)
     elif system == 'sokolka': items = await scrape_sokolka(session, url)
+    elif system == 'lavina': items = await scrape_lavina(session, url)
+    elif system == 'joboffers': items = await scrape_joboffers(session, url)
     else: items = []
     
     new_found = []

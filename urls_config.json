@@ -24,5 +24,10 @@
     {"url": "https://bip-dds-stbialystok.wrotapodlasia.pl/nabory_na_wolne_stanowiska_urzdnicze/", "system": "wrota"},
     {"url": "https://bip-zswczb-stbialystok.wrotapodlasia.pl/nabory-na-stanowiska-urzednicze/", "system": "wrota"},
     {"url": "https://bipkrynki.wrotapodlasia.pl/system-zatrudniania-pracownikow/nabor-na-wolne-stanowiska--pracy/", "system": "wrota"},
-    {"url": "https://bip-ugdobrzyniewoduze.wrotapodlasia.pl/Nab_kan/nab_kan.html", "system": "wrota"}
+    {"url": "https://bip-ugdobrzyniewoduze.wrotapodlasia.pl/Nab_kan/nab_kan.html", "system": "wrota"},
+    {"url": "https://btl.nowybip.pl/ogloszenia", "system": "lavina"},
+    {"url": "https://bip-ops-sokolka.bip.gov.pl/joboffers/index", "system": "joboffers"},
+    {"url": "https://bip-pzdb-stbialystok.podlaskie.eu/ofertapracy/", "system": "wrota"},
+    {"url": "http://www.sokolka.naszabiblioteka.com/bip/rekrutacja", "system": "wrota"},
+    {"url": "https://bip.wasilkow.pl/nabor_na_stanowiska/aktualne_ogoszenia_o_naborach/", "system": "wrota"}
 ]
