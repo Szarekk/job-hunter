@@ -26,7 +26,6 @@ def save_json(path, data):
 
 async def send_discord_notification(session, item):
     if not DISCORD_WEBHOOK:
-        print(f"DEBUG: New item found: {item['title']} - {item['link']} @ {item.get('place')}")
         return
 
     payload = {
@@ -47,10 +46,9 @@ async def send_discord_notification(session, item):
         payload["embeds"][0]["description"] = f"[Pobierz PDF]({item['pdf']})"
 
     try:
-        # async with session.post(DISCORD_WEBHOOK, json=payload) as resp:
-        #     if resp.status != 204:
-        #         print(f"Discord error: {resp.status}")
-        print(f"DEBUG (Notification Suppressed): {item['title']} @ {item.get('place')} | Pay: {item.get('pay')} | Deadline: {item.get('deadline')}")
+        async with session.post(DISCORD_WEBHOOK, json=payload) as resp:
+            if resp.status != 204:
+                print(f"Discord error: {resp.status}")
     except Exception as e:
         print(f"Error sending to Discord: {e}")
 
@@ -75,7 +73,6 @@ async def fetch_soup(session, url):
             text = await resp.text()
             return BeautifulSoup(text, 'lxml')
     except Exception as e:
-        # print(f"Error fetching {url}: {e}")
         return None
 
 def should_skip_role(title):
@@ -92,10 +89,7 @@ async def scrape_bialystok(session, url):
         a = div.select_one('h3 a')
         if not a: continue
         title = a.get_text(strip=True)
-        if should_skip_role(title):
-            print(f"    [Skip] Junior role: {title}")
-            continue
-        print(f"    [Keep] Found job: {title}")
+        if should_skip_role(title): continue
         link = urljoin(url, a['href'])
         items.append({'id': link, 'title': title, 'link': link, 'place': workplace, 'system': 'Białystok BIP'})
     return items
@@ -107,24 +101,18 @@ async def scrape_wrota(session, url):
     items = []
     seen_ids = set()
     links = soup.select('.component-page-list .component-item a') or soup.select('.component-item a')
-    job_keywords = ['nabór', 'konkurs', 'stanowisko', 'praca', 'zatrudnię', 'oferta', 'ogłoszenie', 'inspektor', 'specjalista', 'dyrektor', 'kierownik', 'informatyk', 'księgowy', 'kustosz', 'dokumentalista']
+    job_keywords = ['nabór', 'konkurs', 'stanowisko', 'praca', 'zatrudnię', 'oferta', 'ogłoszenie', 'inspektor', 'specjalista', 'dyrektor', 'kierownik', 'informatyk', 'kustosz', 'dokumentalista']
     garbage = ['redakcja', 'instrukcja', 'mapa', 'szukaj', 'zaloguj', 'kontakt', 'deklaracja', 'statut', 'regulamin', 'metryka']
 
     for a in links:
         link = urljoin(url, a['href'])
         title = a.get_text(strip=True)
         if not title or len(title) < 5: continue
-        if should_skip_role(title):
-            print(f"    [Skip] Junior role: {title}")
-            continue
-        
+        if should_skip_role(title): continue
         title_l = title.lower()
-        if not any(k in title_l for k in job_keywords):
-            # print(f"    [Skip] No job keyword: {title}")
-            continue
+        if not any(k in title_l for k in job_keywords): continue
         if any(g == title_l or g in title_l[:len(g)+1] for g in garbage): continue
         if link not in seen_ids:
-            print(f"    [Keep] Found potential job: {title}")
             items.append({'id': link, 'title': title, 'link': link, 'place': workplace, 'system': 'Wrota Podlasia'})
             seen_ids.add(link)
     return items
@@ -142,12 +130,7 @@ async def scrape_podlaskie(session, url):
         a = tds[0].select_one('a')
         if not a: continue
         title = a.select_one('strong').get_text(strip=True) if a.select_one('strong') else a.get_text(strip=True)
-        
-        if should_skip_role(title):
-            print(f"    [Skip] Junior role: {title}")
-            continue
-            
-        print(f"    [Keep] Found job: {title}")
+        if should_skip_role(title): continue
         link = urljoin(url, a['href'])
         items.append({'id': link, 'title': title, 'link': link, 'place': f"{workplace} - {tds[1].get_text(strip=True)}", 'deadline': tds[2].get_text(strip=True).replace('Do:', '').strip(), 'system': 'Podlaskie.eu'})
     return items
@@ -161,10 +144,7 @@ async def scrape_sokolka(session, url):
         a = article.select_one('h2 a') or (article.select_one('.entry-title a') if article.select_one('.entry-title') else None)
         if not a: continue
         title = a.get_text(strip=True)
-        if should_skip_role(title):
-            print(f"    [Skip] Junior role: {title}")
-            continue
-        print(f"    [Keep] Found job: {title}")
+        if should_skip_role(title): continue
         link = urljoin(url, a['href'])
         items.append({'id': link, 'title': title, 'link': link, 'place': workplace, 'system': 'Sokółka BIP'})
     return items
@@ -202,11 +182,24 @@ async def scrape_joboffers(session, url):
         items.append({'id': link, 'title': title, 'link': link, 'place': workplace, 'deadline': deadline, 'system': 'Table BIP'})
     return items
 
+async def extract_pdf_text(session, url):
+    try:
+        async with session.get(url, timeout=20) as resp:
+            if resp.status == 200:
+                content = await resp.read()
+                f = io.BytesIO(content)
+                reader = PdfReader(f)
+                text = ""
+                for page in reader.pages[:5]:
+                    text += page.extract_text() + "\n"
+                return text
+    except: pass
+    return ""
+
 async def get_details(session, item):
     soup = await fetch_soup(session, item['link'])
     if not soup: return
     
-    # 1. System-specific PDF selectors
     if item['system'] == 'Białystok BIP':
         pdf_a = soup.select_one('.piwik_download[href$=".pdf"]')
         if pdf_a: item['pdf'] = urljoin(item['link'], pdf_a['href'])
@@ -216,27 +209,18 @@ async def get_details(session, item):
         pdf_a = soup.select_one('.matomo_download[href$=".pdf"]')
         if pdf_a: item['pdf'] = urljoin(item['link'], pdf_a['href'])
 
-    # 2. Text-based Regex Extraction (Pay & Deadline)
     text = soup.get_text(separator=' ', strip=True)
-    
-    # Salary regex: looks for numbers followed by zł/pln (e.g., 6 000 zł, 6000-8000 PLN)
-    # Handles spaces between digits
     pay_match = re.search(r'(\d[\d\s]*\d)\s*(?:zł|pln)', text, re.IGNORECASE)
     if pay_match and not item.get('pay'):
         val = pay_match.group(1).replace('\xa0', ' ').strip()
-        if len(val) > 3: # Avoid small numbers like "1 zł"
-            item['pay'] = f"{val} zł"
+        if len(val) > 3: item['pay'] = f"{val} zł"
 
-    # Deadline regex: looks for dates near keywords like "termin", "składania", "do dnia"
     if not item.get('deadline'):
         deadline_match = re.search(r'(?:termin|składania|do dnia)[:\s]*(\d{4}-\d{2}-\d{2}|\d{2}\.\d{2}\.\d{4})', text, re.IGNORECASE)
-        if deadline_match:
-            item['deadline'] = deadline_match.group(1)
+        if deadline_match: item['deadline'] = deadline_match.group(1)
 
 async def process_url(session, entry, history):
     url, system = entry['url'], entry['system']
-    # print(f"Scraping {url}...")
-    
     if system == 'bialystok': items = await scrape_bialystok(session, url)
     elif system == 'wrota': items = await scrape_wrota(session, url)
     elif system == 'podlaskie': items = await scrape_podlaskie(session, url)
@@ -260,7 +244,6 @@ async def main():
     async with aiohttp.ClientSession() as session:
         tasks = [process_url(session, entry, history) for entry in urls]
         results = await asyncio.gather(*tasks)
-        
         all_new = [item for sublist in results for item in sublist]
         for item in all_new:
             history[item['id']] = int(time.time())
