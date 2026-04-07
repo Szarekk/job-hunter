@@ -211,6 +211,7 @@ async def main():
         all_new = [item for sublist in results for item in sublist]
         for item in all_new:
             history[item['id']] = int(time.time())
+        print(f"Finished. Found {len(all_new)} new items.")
             
     save_json(HISTORY_PATH, history)
 
