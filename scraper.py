@@ -154,14 +154,32 @@ async def get_details(session, item):
     soup = await fetch_soup(session, item['link'])
     if not soup: return
     
+    # 1. System-specific PDF selectors
     if item['system'] == 'Białystok BIP':
+        pdf_a = soup.select_one('.piwik_download[href$=".pdf"]')
+        if pdf_a: item['pdf'] = urljoin(item['link'], pdf_a['href'])
         d = soup.select_one('#PAGE_SEARCH_TYPE_PARAM_DEADLINE')
         if d: item['deadline'] = d.get_text(strip=True)
-        pdf = soup.select_one('.piwik_download[href$=".pdf"]')
-        if pdf: item['pdf'] = urljoin(item['link'], pdf['href'])
     elif item['system'] == 'Wrota Podlasia':
-        pdf = soup.select_one('.matomo_download[href$=".pdf"]')
-        if pdf: item['pdf'] = urljoin(item['link'], pdf['href'])
+        pdf_a = soup.select_one('.matomo_download[href$=".pdf"]')
+        if pdf_a: item['pdf'] = urljoin(item['link'], pdf_a['href'])
+
+    # 2. Text-based Regex Extraction (Pay & Deadline)
+    text = soup.get_text(separator=' ', strip=True)
+    
+    # Salary regex: looks for numbers followed by zł/pln (e.g., 6 000 zł, 6000-8000 PLN)
+    # Handles spaces between digits
+    pay_match = re.search(r'(\d[\d\s]*\d)\s*(?:zł|pln)', text, re.IGNORECASE)
+    if pay_match and not item.get('pay'):
+        val = pay_match.group(1).replace('\xa0', ' ').strip()
+        if len(val) > 3: # Avoid small numbers like "1 zł"
+            item['pay'] = f"{val} zł"
+
+    # Deadline regex: looks for dates near keywords like "termin", "składania", "do dnia"
+    if not item.get('deadline'):
+        deadline_match = re.search(r'(?:termin|składania|do dnia)[:\s]*(\d{4}-\d{2}-\d{2}|\d{2}\.\d{2}\.\d{4})', text, re.IGNORECASE)
+        if deadline_match:
+            item['deadline'] = deadline_match.group(1)
 
 async def process_url(session, entry, history):
     url, system = entry['url'], entry['system']
