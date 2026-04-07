@@ -75,12 +75,14 @@ async def fetch_soup(session, url):
             text = await resp.text()
             return BeautifulSoup(text, 'lxml')
     except Exception as e:
-        print(f"Error fetching {url}: {e}")
+        # print(f"Error fetching {url}: {e}")
         return None
 
 def is_junior_role(title):
     title_l = title.lower()
-    return any(x in title_l for x in ['referent', 'podinspektor'])
+    junior_keywords = ['referent', 'podinspektor']
+    is_junior = any(x in title_l for x in junior_keywords)
+    return is_junior
 
 async def scrape_bialystok(session, url):
     soup = await fetch_soup(session, url)
@@ -91,7 +93,9 @@ async def scrape_bialystok(session, url):
         a = div.select_one('h3 a')
         if not a: continue
         title = a.get_text(strip=True)
-        if is_junior_role(title): continue
+        if is_junior_role(title):
+            print(f"    [Skip] Junior role: {title}")
+            continue
         link = urljoin(url, a['href'])
         items.append({'id': link, 'title': title, 'link': link, 'place': workplace, 'system': 'Białystok BIP'})
     return items
@@ -110,7 +114,9 @@ async def scrape_wrota(session, url):
         link = urljoin(url, a['href'])
         title = a.get_text(strip=True)
         if not title or len(title) < 10: continue
-        if is_junior_role(title): continue
+        if is_junior_role(title):
+            print(f"    [Skip] Junior role: {title}")
+            continue
         title_l = title.lower()
         if not any(k in title_l for k in job_keywords): continue
         if any(g == title_l or g in title_l[:len(g)+1] for g in garbage): continue
@@ -132,7 +138,9 @@ async def scrape_podlaskie(session, url):
         a = tds[0].select_one('a')
         if not a: continue
         title = a.select_one('strong').get_text(strip=True) if a.select_one('strong') else a.get_text(strip=True)
-        if is_junior_role(title): continue
+        if is_junior_role(title):
+            print(f"    [Skip] Junior role: {title}")
+            continue
         link = urljoin(url, a['href'])
         items.append({'id': link, 'title': title, 'link': link, 'place': f"{workplace} - {tds[1].get_text(strip=True)}", 'deadline': tds[2].get_text(strip=True).replace('Do:', '').strip(), 'system': 'Podlaskie.eu'})
     return items
@@ -146,7 +154,9 @@ async def scrape_sokolka(session, url):
         a = article.select_one('h2 a') or (article.select_one('.entry-title a') if article.select_one('.entry-title') else None)
         if not a: continue
         title = a.get_text(strip=True)
-        if is_junior_role(title): continue
+        if is_junior_role(title):
+            print(f"    [Skip] Junior role: {title}")
+            continue
         link = urljoin(url, a['href'])
         items.append({'id': link, 'title': title, 'link': link, 'place': workplace, 'system': 'Sokółka BIP'})
     return items
@@ -184,7 +194,7 @@ async def get_details(session, item):
 
 async def process_url(session, entry, history):
     url, system = entry['url'], entry['system']
-    print(f"Scraping {url}...")
+    # print(f"Scraping {url}...")
     
     if system == 'bialystok': items = await scrape_bialystok(session, url)
     elif system == 'wrota': items = await scrape_wrota(session, url)
