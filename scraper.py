@@ -8,6 +8,7 @@ from urllib.parse import urljoin
 import re
 from pypdf import PdfReader
 import io
+from datetime import datetime
 
 # Config
 CONFIG_PATH = 'urls_config.json'
@@ -23,6 +24,36 @@ async def load_json(path, default):
 def save_json(path, data):
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=4, ensure_ascii=False)
+
+async def send_maintenance_alert(session, error_msg):
+    if not DISCORD_WEBHOOK: return
+    payload = {
+        "content": f"⚠️ **ZADANIE WYMAGA KONSERWACJI**\nWystąpił krytyczny błąd w skraperze ofert pracy:\n`{error_msg}`",
+        "username": "Job Hunter Monitor"
+    }
+    try:
+        async with session.post(DISCORD_WEBHOOK, json=payload) as resp:
+            pass
+    except: pass
+
+async def send_health_check(session, count):
+    if not DISCORD_WEBHOOK: return
+    # Only send health check once a week (Sundays)
+    if datetime.now().weekday() != 6: # 6 is Sunday
+        return
+        
+    payload = {
+        "embeds": [{
+            "title": "✅ Raport Tygodniowy Skrapera",
+            "description": f"Skraper działa poprawnie. W ostatnim przebiegu przetworzono {count} nowych pozycji.",
+            "color": 3066993,
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }]
+    }
+    try:
+        async with session.post(DISCORD_WEBHOOK, json=payload) as resp:
+            pass
+    except: pass
 
 async def send_discord_notification(session, item):
     if not DISCORD_WEBHOOK:
@@ -48,15 +79,12 @@ async def send_discord_notification(session, item):
     try:
         async with session.post(DISCORD_WEBHOOK, json=payload) as resp:
             if resp.status == 429:
-                # Rate limited, wait and retry once
                 retry_after = int(resp.headers.get('Retry-After', 5))
-                print(f"Rate limited. Waiting {retry_after}s...")
                 await asyncio.sleep(retry_after)
                 await session.post(DISCORD_WEBHOOK, json=payload)
             elif resp.status != 204:
                 print(f"Discord error: {resp.status}")
-        # Small sleep after every successful notification to be safe
-        await asyncio.sleep(1)
+        await asyncio.sleep(1) # Safety delay
     except Exception as e:
         print(f"Error sending to Discord: {e}")
 
@@ -80,18 +108,17 @@ async def fetch_soup(session, url):
         async with session.get(url, headers=headers, timeout=15) as resp:
             text = await resp.text()
             return BeautifulSoup(text, 'lxml')
-    except Exception as e:
+    except:
         return None
 
 def should_skip_role(title):
     title_l = title.lower()
-    # Skip junior roles and accounting roles
     skip_keywords = ['referent', 'podinspektor', 'księgow']
     return any(x in title_l for x in skip_keywords)
 
 def is_academic_role(title):
     title_l = title.lower()
-    # Skip academic/teaching/research staff (EXCEPT teachers - 'nauczyciel' removed)
+    # Academic/research only (nauczyciel is NOT here)
     academic_keywords = ['doktorant', 'stypendysta', 'post-doc', 'adiunkt', 'profesor', 'asystent', 'lektor', 'wykładowca', 'badawczy']
     return any(k in title_l for k in academic_keywords)
 
@@ -116,7 +143,7 @@ async def scrape_wrota(session, url):
     items = []
     seen_ids = set()
     links = soup.select('.component-page-list .component-item a') or soup.select('.component-item a')
-    job_keywords = ['nabór', 'konkurs', 'stanowisko', 'praca', 'zatrudnię', 'oferta', 'ogłoszenie', 'inspektor', 'specjalista', 'dyrektor', 'kierownik', 'informatyk', 'kustosz', 'dokumentalista']
+    job_keywords = ['nabór', 'konkurs', 'stanowisko', 'praca', 'zatrudnię', 'oferta', 'ogłoszenie', 'inspektor', 'specjalista', 'dyrektor', 'kierownik', 'informatyk', 'kustosz', 'dokumentalista', 'nauczyciel']
     garbage = ['redakcja', 'instrukcja', 'mapa', 'szukaj', 'zaloguj', 'kontakt', 'deklaracja', 'statut', 'regulamin', 'metryka']
 
     for a in links:
@@ -307,14 +334,23 @@ async def main():
     history = await load_json(HISTORY_PATH, {})
     
     async with aiohttp.ClientSession() as session:
-        tasks = [process_url(session, entry, history) for entry in urls]
-        results = await asyncio.gather(*tasks)
-        all_new = [item for sublist in results for item in sublist]
-        for item in all_new:
-            history[item['id']] = int(time.time())
-        print(f"Finished. Found {len(all_new)} new items.")
+        try:
+            tasks = [process_url(session, entry, history) for entry in urls]
+            results = await asyncio.gather(*tasks)
             
-    save_json(HISTORY_PATH, history)
+            all_new = [item for sublist in results for item in sublist]
+            for item in all_new:
+                history[item['id']] = int(time.time())
+            
+            save_json(HISTORY_PATH, history)
+            print(f"Finished. Found {len(all_new)} new items.")
+            await send_health_check(session, len(all_new))
+            
+        except Exception as e:
+            error_trace = str(e)
+            print(f"CRITICAL ERROR: {error_trace}")
+            await send_maintenance_alert(session, error_trace)
+            raise e
 
 if __name__ == "__main__":
     asyncio.run(main())
