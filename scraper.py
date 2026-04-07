@@ -78,11 +78,10 @@ async def fetch_soup(session, url):
         # print(f"Error fetching {url}: {e}")
         return None
 
-def is_junior_role(title):
+def should_skip_role(title):
     title_l = title.lower()
-    junior_keywords = ['referent', 'podinspektor']
-    is_junior = any(x in title_l for x in junior_keywords)
-    return is_junior
+    skip_keywords = ['referent', 'podinspektor', 'księgow']
+    return any(x in title_l for x in skip_keywords)
 
 async def scrape_bialystok(session, url):
     soup = await fetch_soup(session, url)
@@ -93,7 +92,7 @@ async def scrape_bialystok(session, url):
         a = div.select_one('h3 a')
         if not a: continue
         title = a.get_text(strip=True)
-        if is_junior_role(title):
+        if should_skip_role(title):
             print(f"    [Skip] Junior role: {title}")
             continue
         print(f"    [Keep] Found job: {title}")
@@ -115,7 +114,7 @@ async def scrape_wrota(session, url):
         link = urljoin(url, a['href'])
         title = a.get_text(strip=True)
         if not title or len(title) < 5: continue
-        if is_junior_role(title):
+        if should_skip_role(title):
             print(f"    [Skip] Junior role: {title}")
             continue
         
@@ -144,7 +143,7 @@ async def scrape_podlaskie(session, url):
         if not a: continue
         title = a.select_one('strong').get_text(strip=True) if a.select_one('strong') else a.get_text(strip=True)
         
-        if is_junior_role(title):
+        if should_skip_role(title):
             print(f"    [Skip] Junior role: {title}")
             continue
             
@@ -162,7 +161,7 @@ async def scrape_sokolka(session, url):
         a = article.select_one('h2 a') or (article.select_one('.entry-title a') if article.select_one('.entry-title') else None)
         if not a: continue
         title = a.get_text(strip=True)
-        if is_junior_role(title):
+        if should_skip_role(title):
             print(f"    [Skip] Junior role: {title}")
             continue
         print(f"    [Keep] Found job: {title}")
