@@ -29,5 +29,8 @@
     {"url": "https://bip-ops-sokolka.bip.gov.pl/joboffers/index", "system": "joboffers"},
     {"url": "https://bip-pzdb-stbialystok.podlaskie.eu/ofertapracy/", "system": "wrota"},
     {"url": "http://www.sokolka.naszabiblioteka.com/bip/rekrutacja", "system": "wrota"},
-    {"url": "https://bip.wasilkow.pl/nabor_na_stanowiska/aktualne_ogoszenia_o_naborach/", "system": "wrota"}
+    {"url": "https://bip.wasilkow.pl/nabor_na_stanowiska/aktualne_ogoszenia_o_naborach/", "system": "wrota"},
+    {"url": "https://pb.edu.pl/pracownicy/aktualnosci/", "system": "pb"},
+    {"url": "https://bip.uwb.edu.pl/uwb/oferty-pracy/nabor-na-wolne-stanowis", "system": "uwb"},
+    {"url": "https://www.umb.edu.pl/konkursy_na_stanowiska/oferty_pracy", "system": "umb"}
 ]

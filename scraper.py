@@ -77,8 +77,15 @@ async def fetch_soup(session, url):
 
 def should_skip_role(title):
     title_l = title.lower()
+    # Skip junior roles and accounting roles
     skip_keywords = ['referent', 'podinspektor', 'księgow']
     return any(x in title_l for x in skip_keywords)
+
+def is_academic_role(title):
+    title_l = title.lower()
+    # Skip academic/teaching/research staff
+    academic_keywords = ['nauczyciel', 'doktorant', 'stypendysta', 'post-doc', 'adiunkt', 'profesor', 'asystent', 'lektor', 'wykładowca', 'badawczy']
+    return any(k in title_l for k in academic_keywords)
 
 async def scrape_bialystok(session, url):
     soup = await fetch_soup(session, url)
@@ -182,6 +189,53 @@ async def scrape_joboffers(session, url):
         items.append({'id': link, 'title': title, 'link': link, 'place': workplace, 'deadline': deadline, 'system': 'Table BIP'})
     return items
 
+async def scrape_pb(session, url):
+    soup = await fetch_soup(session, url)
+    if not soup: return []
+    workplace = "Politechnika Białostocka"
+    items = []
+    for article in soup.select('article.news-employee-article'):
+        a = article.select_one('a')
+        h3 = article.select_one('h3')
+        if not a or not h3: continue
+        title = h3.get_text(strip=True)
+        if should_skip_role(title) or is_academic_role(title): continue
+        link = urljoin(url, a['href'])
+        items.append({'id': link, 'title': title, 'link': link, 'place': workplace, 'system': 'PB'})
+    return items
+
+async def scrape_uwb(session, url):
+    soup = await fetch_soup(session, url)
+    if not soup: return []
+    workplace = "Uniwersytet w Białymstoku"
+    items = []
+    for li in soup.select('li.list.line'):
+        a = li.select_one('a')
+        h3 = li.select_one('h3')
+        if not a or not h3: continue
+        title = h3.get_text(strip=True)
+        if should_skip_role(title) or is_academic_role(title): continue
+        link = urljoin(url, a['href'])
+        deadline = li.select_one('.dataFloat').get_text(strip=True) if li.select_one('.dataFloat') else None
+        items.append({'id': link, 'title': title, 'link': link, 'place': workplace, 'deadline': deadline, 'system': 'UwB'})
+    return items
+
+async def scrape_umb(session, url):
+    soup = await fetch_soup(session, url)
+    if not soup: return []
+    workplace = "Uniwersytet Medyczny w Białymstoku"
+    items = []
+    container = soup.select_one('.tresc_podstrony')
+    if not container: return []
+    for a in container.select('a'):
+        title = a.get_text(strip=True)
+        if len(title) < 15: continue
+        if should_skip_role(title) or is_academic_role(title): continue
+        link = urljoin(url, a['href'])
+        if 'zgloszenia_naruszen_prawa' in link or 'Polityka_Cookies' in link: continue
+        items.append({'id': link, 'title': title, 'link': link, 'place': workplace, 'system': 'UMB'})
+    return items
+
 async def extract_pdf_text(session, url):
     try:
         async with session.get(url, timeout=20) as resp:
@@ -227,6 +281,9 @@ async def process_url(session, entry, history):
     elif system == 'sokolka': items = await scrape_sokolka(session, url)
     elif system == 'lavina': items = await scrape_lavina(session, url)
     elif system == 'joboffers': items = await scrape_joboffers(session, url)
+    elif system == 'pb': items = await scrape_pb(session, url)
+    elif system == 'uwb': items = await scrape_uwb(session, url)
+    elif system == 'umb': items = await scrape_umb(session, url)
     else: items = []
     
     new_found = []
