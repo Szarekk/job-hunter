@@ -4,10 +4,11 @@ A Python-based scraper that monitors multiple BIP (Biuletyn Informacji Publiczne
 
 ## Features
 - Supports 4 major BIP systems: Bialystok.pl, Wrota Podlasia, Podlaskie.eu, and WordPress-based BIPs.
-- Automatic workplace name extraction.
+- Automatic workplace name, salary, submission deadline extraction.
 - Notification via Discord Webhook.
-- Runs 3 times a day via GitHub Actions.
+- Runs once a day via GitHub Actions.
 - Tracking history to prevent duplicate alerts.
+- Filters out junior and accounting postions
 
 ## Configuration
 - `urls_config.json`: List of URLs to monitor and their scraper system.
