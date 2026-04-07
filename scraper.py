@@ -96,6 +96,7 @@ async def scrape_bialystok(session, url):
         if is_junior_role(title):
             print(f"    [Skip] Junior role: {title}")
             continue
+        print(f"    [Keep] Found job: {title}")
         link = urljoin(url, a['href'])
         items.append({'id': link, 'title': title, 'link': link, 'place': workplace, 'system': 'Białystok BIP'})
     return items
@@ -107,20 +108,24 @@ async def scrape_wrota(session, url):
     items = []
     seen_ids = set()
     links = soup.select('.component-page-list .component-item a') or soup.select('.component-item a')
-    job_keywords = ['nabór', 'konkurs', 'stanowisko', 'praca', 'zatrudnię', 'oferta', 'ogłoszenie', 'inspektor', 'podinspektor', 'specjalista', 'referent', 'dyrektor', 'kierownik']
+    job_keywords = ['nabór', 'konkurs', 'stanowisko', 'praca', 'zatrudnię', 'oferta', 'ogłoszenie', 'inspektor', 'specjalista', 'dyrektor', 'kierownik', 'informatyk', 'księgowy', 'kustosz', 'dokumentalista']
     garbage = ['redakcja', 'instrukcja', 'mapa', 'szukaj', 'zaloguj', 'kontakt', 'deklaracja', 'statut', 'regulamin', 'metryka']
 
     for a in links:
         link = urljoin(url, a['href'])
         title = a.get_text(strip=True)
-        if not title or len(title) < 10: continue
+        if not title or len(title) < 5: continue
         if is_junior_role(title):
             print(f"    [Skip] Junior role: {title}")
             continue
+        
         title_l = title.lower()
-        if not any(k in title_l for k in job_keywords): continue
+        if not any(k in title_l for k in job_keywords):
+            # print(f"    [Skip] No job keyword: {title}")
+            continue
         if any(g == title_l or g in title_l[:len(g)+1] for g in garbage): continue
         if link not in seen_ids:
+            print(f"    [Keep] Found potential job: {title}")
             items.append({'id': link, 'title': title, 'link': link, 'place': workplace, 'system': 'Wrota Podlasia'})
             seen_ids.add(link)
     return items
@@ -138,9 +143,12 @@ async def scrape_podlaskie(session, url):
         a = tds[0].select_one('a')
         if not a: continue
         title = a.select_one('strong').get_text(strip=True) if a.select_one('strong') else a.get_text(strip=True)
+        
         if is_junior_role(title):
             print(f"    [Skip] Junior role: {title}")
             continue
+            
+        print(f"    [Keep] Found job: {title}")
         link = urljoin(url, a['href'])
         items.append({'id': link, 'title': title, 'link': link, 'place': f"{workplace} - {tds[1].get_text(strip=True)}", 'deadline': tds[2].get_text(strip=True).replace('Do:', '').strip(), 'system': 'Podlaskie.eu'})
     return items
@@ -157,6 +165,7 @@ async def scrape_sokolka(session, url):
         if is_junior_role(title):
             print(f"    [Skip] Junior role: {title}")
             continue
+        print(f"    [Keep] Found job: {title}")
         link = urljoin(url, a['href'])
         items.append({'id': link, 'title': title, 'link': link, 'place': workplace, 'system': 'Sokółka BIP'})
     return items
