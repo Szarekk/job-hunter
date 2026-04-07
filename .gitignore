@@ -1,0 +1,9 @@
+env/
+__pycache__/
+samples/
+fetch_samples.py
+test_local.py
+raw_samples/
+*.html
+*.pyc
+.DS_Store
