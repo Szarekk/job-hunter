@@ -47,8 +47,16 @@ async def send_discord_notification(session, item):
 
     try:
         async with session.post(DISCORD_WEBHOOK, json=payload) as resp:
-            if resp.status != 204:
+            if resp.status == 429:
+                # Rate limited, wait and retry once
+                retry_after = int(resp.headers.get('Retry-After', 5))
+                print(f"Rate limited. Waiting {retry_after}s...")
+                await asyncio.sleep(retry_after)
+                await session.post(DISCORD_WEBHOOK, json=payload)
+            elif resp.status != 204:
                 print(f"Discord error: {resp.status}")
+        # Small sleep after every successful notification to be safe
+        await asyncio.sleep(1)
     except Exception as e:
         print(f"Error sending to Discord: {e}")
 
@@ -83,8 +91,8 @@ def should_skip_role(title):
 
 def is_academic_role(title):
     title_l = title.lower()
-    # Skip academic/teaching/research staff
-    academic_keywords = ['nauczyciel', 'doktorant', 'stypendysta', 'post-doc', 'adiunkt', 'profesor', 'asystent', 'lektor', 'wykładowca', 'badawczy']
+    # Skip academic/teaching/research staff (EXCEPT teachers - 'nauczyciel' removed)
+    academic_keywords = ['doktorant', 'stypendysta', 'post-doc', 'adiunkt', 'profesor', 'asystent', 'lektor', 'wykładowca', 'badawczy']
     return any(k in title_l for k in academic_keywords)
 
 async def scrape_bialystok(session, url):
