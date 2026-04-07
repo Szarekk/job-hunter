@@ -47,9 +47,10 @@ async def send_discord_notification(session, item):
         payload["embeds"][0]["description"] = f"[Pobierz PDF]({item['pdf']})"
 
     try:
-        async with session.post(DISCORD_WEBHOOK, json=payload) as resp:
-            if resp.status != 204:
-                print(f"Discord error: {resp.status}")
+        # async with session.post(DISCORD_WEBHOOK, json=payload) as resp:
+        #     if resp.status != 204:
+        #         print(f"Discord error: {resp.status}")
+        print(f"DEBUG (Notification Suppressed): {item['title']} @ {item.get('place')} | Pay: {item.get('pay')} | Deadline: {item.get('deadline')}")
     except Exception as e:
         print(f"Error sending to Discord: {e}")
 
