@@ -113,7 +113,7 @@ async def fetch_soup(session, url):
 
 def should_skip_role(title):
     title_l = title.lower()
-    skip_keywords = ['referent', 'podinspektor', 'księgow']
+    skip_keywords = ['młodszy referent', 'księgow']
     return any(x in title_l for x in skip_keywords)
 
 def is_academic_role(title):
